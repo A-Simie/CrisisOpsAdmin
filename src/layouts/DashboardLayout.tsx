@@ -5,8 +5,9 @@ import {
     AlertTriangle,
     Backpack,
     Map,
-    Settings,
     User,
+    Users,
+    Building2,
     Bell,
     Search,
     RefreshCw,
@@ -17,6 +18,8 @@ import {
 } from 'lucide-react'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { useState } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { hasMinimumRole, UserRoleType } from '../types/api'
 
 interface DashboardLayoutProps {
     children: ReactNode
@@ -25,13 +28,27 @@ interface DashboardLayoutProps {
     onNavigate: (page: string) => void
 }
 
-const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '' },
-    { icon: AlertTriangle, label: 'Incidents', path: 'incidents' },
-    { icon: Backpack, label: 'Hazard Packs', path: 'hazard-packs' },
-    { icon: Map, label: 'Map View', path: 'map-view' },
-    { icon: Settings, label: 'Settings', path: 'settings' },
-]
+interface NavItem {
+    icon: typeof LayoutDashboard
+    label: string
+    path: string
+    minRole?: UserRoleType
+}
+
+const getNavItems = (userRole: UserRoleType): NavItem[] => {
+    const allItems: NavItem[] = [
+        { icon: LayoutDashboard, label: 'Dashboard', path: '' },
+        { icon: AlertTriangle, label: 'Incidents', path: 'incidents' },
+        { icon: Backpack, label: 'Hazard Packs', path: 'hazard-packs' },
+        { icon: Map, label: 'Map View', path: 'map-view' },
+        { icon: Users, label: 'Users', path: 'users', minRole: 'ORG_ADMIN' },
+        { icon: Building2, label: 'Organizations', path: 'organizations', minRole: 'GOV_ADMIN' },
+    ]
+
+    return allItems.filter(item =>
+        !item.minRole || hasMinimumRole(userRole, item.minRole)
+    )
+}
 
 const pageTitles: Record<string, string> = {
     '': 'Overview',
@@ -39,13 +56,18 @@ const pageTitles: Record<string, string> = {
     'incidents': 'Incidents',
     'hazard-packs': 'Hazard Packs',
     'map-view': 'Map View',
-    'settings': 'Settings',
+    'users': 'Users',
+    'organizations': 'Organizations',
     'profile': 'Profile',
+    'profile/edit': 'Edit Profile',
 }
 
 export function DashboardLayout({ children, onLogout, currentPage, onNavigate }: DashboardLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const navigate = useNavigate()
+    const { user } = useAuth()
+
+    const navItems = getNavItems(user?.role || 'CITIZEN')
 
     const handleNavigate = (path: string) => {
         onNavigate(path)
@@ -172,11 +194,17 @@ export function DashboardLayout({ children, onLogout, currentPage, onNavigate }:
                                 onClick={() => handleNavigate('profile')}
                                 className="h-10 w-10 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
                             >
-                                <img
-                                    alt="User profile avatar"
-                                    className="h-full w-full object-cover"
-                                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face"
-                                />
+                                {user?.profilePicture ? (
+                                    <img
+                                        alt={user.firstName}
+                                        className="h-full w-full object-cover"
+                                        src={user.profilePicture}
+                                    />
+                                ) : (
+                                    <div className="flex h-full w-full items-center justify-center bg-primary text-white font-medium">
+                                        {user?.firstName?.[0]}{user?.lastName?.[0]}
+                                    </div>
+                                )}
                             </button>
                         </div>
                     </div>

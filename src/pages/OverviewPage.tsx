@@ -1,7 +1,11 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useTheme } from '../context/ThemeContext'
+import { useAuth } from '../context/AuthContext'
+import { incidentsApi } from '../api'
+import type { Incident } from '../types/api'
 import {
     TrendingUp,
     TrendingDown,
@@ -18,105 +22,136 @@ import {
     Droplets,
     Flame,
     ExternalLink,
+    Loader2,
 } from 'lucide-react'
 
-const stats = [
-    {
-        label: 'Active Incidents',
-        value: '142',
-        change: '+12',
-        trend: 'up',
-        icon: AlertTriangle,
-        iconBg: 'bg-red-500/10',
-        iconColor: 'text-red-500',
-    },
-    {
-        label: 'Units Deployed',
-        value: '89',
-        change: '+5',
-        trend: 'up',
-        icon: Users,
-        iconBg: 'bg-blue-500/10',
-        iconColor: 'text-blue-500',
-    },
-    {
-        label: 'Resolved Today',
-        value: '56',
-        change: '+8',
-        trend: 'up',
-        icon: CheckCircle2,
-        iconBg: 'bg-emerald-500/10',
-        iconColor: 'text-emerald-500',
-    },
-    {
-        label: 'Avg Response',
-        value: '14m',
-        change: '-2m',
-        trend: 'down',
-        icon: Timer,
-        iconBg: 'bg-amber-500/10',
-        iconColor: 'text-amber-500',
-    },
-]
+const typeIcons: Record<string, { iconBg: string }> = {
+    'Flash Flood': { iconBg: 'bg-blue-500' },
+    'Flood': { iconBg: 'bg-blue-500' },
+    'Fire': { iconBg: 'bg-orange-500' },
+    'Market Fire': { iconBg: 'bg-orange-500' },
+    'Medical Emergency': { iconBg: 'bg-emerald-500' },
+    'Road Blockage': { iconBg: 'bg-yellow-500' },
+}
 
-const recentIncidents = [
-    {
-        id: 'INC-4092',
-        type: 'Flash Flood',
-        icon: Droplets,
-        iconBg: 'bg-blue-500',
-        location: 'Lagos Mainland, Yaba',
-        time: '12 min ago',
-        severity: 'Critical',
-        severityClass: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
-    },
-    {
-        id: 'INC-4088',
-        type: 'Market Fire',
-        icon: Flame,
-        iconBg: 'bg-orange-500',
-        location: 'Balogun Market, Lagos',
-        time: '28 min ago',
-        severity: 'High',
-        severityClass: 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400',
-    },
-    {
-        id: 'INC-4075',
-        type: 'Road Blockage',
-        icon: AlertTriangle,
-        iconBg: 'bg-yellow-500',
-        location: 'Ikeja GRA, Lagos',
-        time: '45 min ago',
-        severity: 'Medium',
-        severityClass: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400',
-    },
-]
+const severityClasses: Record<string, string> = {
+    CRITICAL: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
+    HIGH: 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400',
+    MEDIUM: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400',
+    LOW: 'bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-400',
+}
 
-const mapIncidents = [
-    { coords: [6.5244, 3.3792] as [number, number], severity: 'critical', type: 'Flood', count: 12 },
-    { coords: [6.4541, 3.3947] as [number, number], severity: 'high', type: 'Fire', count: 8 },
-    { coords: [6.6018, 3.3515] as [number, number], severity: 'medium', type: 'Road', count: 5 },
-    { coords: [6.4698, 3.5852] as [number, number], severity: 'critical', type: 'Flood', count: 15 },
-    { coords: [6.5833, 3.6000] as [number, number], severity: 'high', type: 'Medical', count: 4 },
-]
+function formatTimeAgo(dateString: string): string {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMins = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+    if (diffMins < 60) return `${diffMins} min ago`
+    const hours = Math.floor(diffMins / 60)
+    return `${hours}h ${diffMins % 60}m ago`
+}
 
-const activityFeed = [
-    { action: 'Incident #4092 assigned to Team Alpha', time: '2 min ago', type: 'assign' },
-    { action: 'Hazard Pack updated for Lagos State', time: '15 min ago', type: 'update' },
-    { action: 'Incident #4088 verified by dispatch', time: '22 min ago', type: 'verify' },
-    { action: '3 new responders deployed to Sector 4', time: '35 min ago', type: 'deploy' },
-]
-
-const regionStats = [
-    { name: 'Lagos State', incidents: 145, change: '+12%', color: 'bg-red-500' },
-    { name: 'Abuja FCT', incidents: 89, change: '+8%', color: 'bg-orange-500' },
-    { name: 'Kano State', incidents: 67, change: '-5%', color: 'bg-blue-500' },
-    { name: 'Rivers State', incidents: 54, change: '+3%', color: 'bg-emerald-500' },
-]
+interface StatItem {
+    label: string
+    value: string
+    change: string
+    trend: 'up' | 'down'
+    icon: typeof AlertTriangle
+    iconBg: string
+    iconColor: string
+}
 
 export function OverviewPage() {
     const navigate = useNavigate()
     const { theme } = useTheme()
+    const { user } = useAuth()
+    const [incidents, setIncidents] = useState<Incident[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [lastUpdated, setLastUpdated] = useState(new Date())
+
+    useEffect(() => {
+        async function fetchData() {
+            try {
+                const response = await incidentsApi.getAll({ limit: 100 })
+                setIncidents(response.data || [])
+                setLastUpdated(new Date())
+            } catch (err) {
+                console.error('Failed to fetch incidents:', err)
+            } finally {
+                setIsLoading(false)
+            }
+        }
+        fetchData()
+    }, [])
+
+    const activeIncidents = incidents.filter(i => i.status !== 'RESOLVED')
+    const resolvedToday = incidents.filter(i => {
+        if (i.status !== 'RESOLVED') return false
+        const resolved = new Date(i.updatedAt)
+        const today = new Date()
+        return resolved.toDateString() === today.toDateString()
+    })
+
+    const stats: StatItem[] = [
+        {
+            label: 'Active Incidents',
+            value: String(activeIncidents.length),
+            change: '+' + activeIncidents.filter(i => i.status === 'PENDING').length,
+            trend: 'up',
+            icon: AlertTriangle,
+            iconBg: 'bg-red-500/10',
+            iconColor: 'text-red-500',
+        },
+        {
+            label: 'Responding',
+            value: String(incidents.filter(i => i.status === 'RESPONDING').length),
+            change: '+0',
+            trend: 'up',
+            icon: Users,
+            iconBg: 'bg-blue-500/10',
+            iconColor: 'text-blue-500',
+        },
+        {
+            label: 'Resolved Today',
+            value: String(resolvedToday.length),
+            change: '+' + resolvedToday.length,
+            trend: 'up',
+            icon: CheckCircle2,
+            iconBg: 'bg-emerald-500/10',
+            iconColor: 'text-emerald-500',
+        },
+        {
+            label: 'Pending Triage',
+            value: String(incidents.filter(i => i.status === 'PENDING').length),
+            change: '',
+            trend: 'down',
+            icon: Timer,
+            iconBg: 'bg-amber-500/10',
+            iconColor: 'text-amber-500',
+        },
+    ]
+
+    const recentIncidents = incidents
+        .filter(i => i.status !== 'RESOLVED')
+        .slice(0, 3)
+        .map(inc => ({
+            id: inc.id,
+            type: inc.type,
+            icon: inc.type.includes('Flood') ? Droplets : inc.type.includes('Fire') ? Flame : AlertTriangle,
+            iconBg: typeIcons[inc.type]?.iconBg || 'bg-slate-500',
+            location: inc.location?.address || 'Unknown location',
+            time: formatTimeAgo(inc.createdAt),
+            severity: inc.severity,
+            severityClass: severityClasses[inc.severity] || severityClasses.MEDIUM,
+        }))
+
+    const mapIncidents = incidents
+        .filter(i => i.location?.latitude && i.location?.longitude)
+        .map(inc => ({
+            coords: [inc.location.latitude, inc.location.longitude] as [number, number],
+            severity: inc.severity.toLowerCase(),
+            type: inc.type,
+            id: inc.id,
+        }))
 
     const lightTileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
     const darkTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
@@ -126,8 +161,23 @@ export function OverviewPage() {
         switch (severity) {
             case 'critical': return { fill: '#ef4444', stroke: '#dc2626' }
             case 'high': return { fill: '#f97316', stroke: '#ea580c' }
-            default: return { fill: '#eab308', stroke: '#ca8a04' }
+            case 'medium': return { fill: '#eab308', stroke: '#ca8a04' }
+            default: return { fill: '#64748b', stroke: '#475569' }
         }
+    }
+
+    const userName = user?.firstName || 'User'
+    const minutesAgo = Math.floor((new Date().getTime() - lastUpdated.getTime()) / 60000)
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-full min-h-[400px]">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="text-slate-500 dark:text-gray-400">Loading dashboard...</span>
+                </div>
+            </div>
+        )
     }
 
     return (
@@ -135,7 +185,7 @@ export function OverviewPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
                     <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white">
-                        Welcome back, Alex
+                        Welcome back, {userName}
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400">
                         Here's what's happening across your regions today.
@@ -143,7 +193,7 @@ export function OverviewPage() {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                     <Clock className="h-4 w-4" />
-                    Last updated: 2 min ago
+                    Last updated: {minutesAgo < 1 ? 'just now' : `${minutesAgo} min ago`}
                 </div>
             </div>
 
@@ -157,15 +207,17 @@ export function OverviewPage() {
                             <div className={`p-2 lg:p-2.5 rounded-xl ${stat.iconBg}`}>
                                 <stat.icon className={`h-4 w-4 lg:h-5 lg:w-5 ${stat.iconColor}`} />
                             </div>
-                            <span
-                                className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${stat.trend === 'up'
+                            {stat.change && (
+                                <span
+                                    className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${stat.trend === 'up'
                                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
                                         : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
-                                    }`}
-                            >
-                                {stat.trend === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                                {stat.change}
-                            </span>
+                                        }`}
+                                >
+                                    {stat.trend === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                    {stat.change}
+                                </span>
+                            )}
                         </div>
                         <p className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white mb-1">
                             {stat.value}
@@ -186,7 +238,9 @@ export function OverviewPage() {
                             </div>
                             <div>
                                 <h2 className="font-bold text-slate-900 dark:text-white">Geospatial Insights</h2>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">Live incident heatmap</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    {mapIncidents.length} incidents with location data
+                                </p>
                             </div>
                         </div>
                         <button
@@ -212,13 +266,13 @@ export function OverviewPage() {
                                 attribution='&copy; OpenStreetMap'
                                 url={tileUrl}
                             />
-                            {mapIncidents.map((incident, i) => {
+                            {mapIncidents.map((incident) => {
                                 const colors = getSeverityColor(incident.severity)
                                 return (
                                     <CircleMarker
-                                        key={i}
+                                        key={incident.id}
                                         center={incident.coords}
-                                        radius={incident.count + 8}
+                                        radius={12}
                                         pathOptions={{
                                             fillColor: colors.fill,
                                             fillOpacity: 0.6,
@@ -230,7 +284,7 @@ export function OverviewPage() {
                                             <div className="text-sm">
                                                 <strong>{incident.type}</strong>
                                                 <br />
-                                                {incident.count} incidents
+                                                ID: {incident.id.slice(-6)}
                                             </div>
                                         </Popup>
                                     </CircleMarker>
@@ -256,20 +310,27 @@ export function OverviewPage() {
                         </div>
                     </div>
                     <div className="p-4 space-y-4 flex-1 overflow-y-auto">
-                        {activityFeed.map((item, i) => (
-                            <div key={i} className="flex gap-3">
+                        {incidents.slice(0, 4).map((inc, i) => (
+                            <div key={inc.id} className="flex gap-3">
                                 <div className="relative">
                                     <div className="size-2 rounded-full bg-primary mt-2" />
-                                    {i < activityFeed.length - 1 && (
+                                    {i < 3 && (
                                         <div className="absolute top-4 left-[3px] w-px h-full bg-slate-200 dark:bg-slate-700" />
                                     )}
                                 </div>
                                 <div className="flex-1 pb-2">
-                                    <p className="text-sm text-slate-700 dark:text-slate-300">{item.action}</p>
-                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{item.time}</p>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                                        Incident #{inc.id.slice(-6)} - {inc.type} ({inc.status})
+                                    </p>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                                        {formatTimeAgo(inc.createdAt)}
+                                    </p>
                                 </div>
                             </div>
                         ))}
+                        {incidents.length === 0 && (
+                            <p className="text-sm text-slate-500 text-center py-4">No recent activity</p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -295,36 +356,40 @@ export function OverviewPage() {
                         </button>
                     </div>
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {recentIncidents.map((incident) => (
-                            <div
-                                key={incident.id}
-                                onClick={() => navigate('/incidents')}
-                                className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors flex items-center gap-4"
-                            >
-                                <div className={`p-2 rounded-xl ${incident.iconBg} text-white shrink-0`}>
-                                    <incident.icon className="h-4 w-4" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-0.5">
-                                        <span className="font-semibold text-sm text-slate-900 dark:text-white">{incident.type}</span>
-                                        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${incident.severityClass}`}>
-                                            {incident.severity}
-                                        </span>
+                        {recentIncidents.length === 0 ? (
+                            <div className="p-8 text-center text-slate-500">No active incidents</div>
+                        ) : (
+                            recentIncidents.map((incident) => (
+                                <div
+                                    key={incident.id}
+                                    onClick={() => navigate('/incidents')}
+                                    className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors flex items-center gap-4"
+                                >
+                                    <div className={`p-2 rounded-xl ${incident.iconBg} text-white shrink-0`}>
+                                        <incident.icon className="h-4 w-4" />
                                     </div>
-                                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                                        <span className="flex items-center gap-1 truncate">
-                                            <MapPin className="h-3 w-3 shrink-0" />
-                                            {incident.location}
-                                        </span>
-                                        <span className="flex items-center gap-1 shrink-0">
-                                            <Clock className="h-3 w-3" />
-                                            {incident.time}
-                                        </span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <span className="font-semibold text-sm text-slate-900 dark:text-white">{incident.type}</span>
+                                            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${incident.severityClass}`}>
+                                                {incident.severity}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                                            <span className="flex items-center gap-1 truncate">
+                                                <MapPin className="h-3 w-3 shrink-0" />
+                                                {incident.location}
+                                            </span>
+                                            <span className="flex items-center gap-1 shrink-0">
+                                                <Clock className="h-3 w-3" />
+                                                {incident.time}
+                                            </span>
+                                        </div>
                                     </div>
+                                    <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0" />
                                 </div>
-                                <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0" />
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </div>
 
@@ -334,23 +399,30 @@ export function OverviewPage() {
                             <div className="p-2 rounded-lg bg-purple-500/10">
                                 <MapPin className="h-5 w-5 text-purple-500" />
                             </div>
-                            <h2 className="font-bold text-slate-900 dark:text-white text-sm">By Region</h2>
+                            <h2 className="font-bold text-slate-900 dark:text-white text-sm">By Severity</h2>
                         </div>
                         <div className="space-y-3">
-                            {regionStats.map((region) => (
-                                <div key={region.name}>
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{region.name}</span>
-                                        <span className="text-xs font-bold text-slate-900 dark:text-white">{region.incidents}</span>
+                            {['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((sev) => {
+                                const count = incidents.filter(i => i.severity === sev).length
+                                const maxCount = incidents.length || 1
+                                return (
+                                    <div key={sev}>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{sev}</span>
+                                            <span className="text-xs font-bold text-slate-900 dark:text-white">{count}</span>
+                                        </div>
+                                        <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full ${sev === 'CRITICAL' ? 'bg-red-500' :
+                                                    sev === 'HIGH' ? 'bg-orange-500' :
+                                                        sev === 'MEDIUM' ? 'bg-yellow-500' : 'bg-slate-400'
+                                                    }`}
+                                                style={{ width: `${(count / maxCount) * 100}%` }}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full ${region.color} rounded-full`}
-                                            style={{ width: `${(region.incidents / 145) * 100}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     </div>
 
@@ -364,16 +436,16 @@ export function OverviewPage() {
                             <p className="text-xs text-white/70 mb-4">All systems operational</p>
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="bg-white/10 rounded-lg p-2 text-center backdrop-blur-sm">
-                                    <p className="text-lg font-bold">99.9%</p>
-                                    <p className="text-[10px] text-white/70">Uptime</p>
+                                    <p className="text-lg font-bold">{incidents.length}</p>
+                                    <p className="text-[10px] text-white/70">Total</p>
                                 </div>
                                 <div className="bg-white/10 rounded-lg p-2 text-center backdrop-blur-sm">
-                                    <p className="text-lg font-bold">24ms</p>
-                                    <p className="text-[10px] text-white/70">Latency</p>
+                                    <p className="text-lg font-bold">{activeIncidents.length}</p>
+                                    <p className="text-[10px] text-white/70">Active</p>
                                 </div>
                                 <div className="bg-white/10 rounded-lg p-2 text-center backdrop-blur-sm">
-                                    <p className="text-lg font-bold">847</p>
-                                    <p className="text-[10px] text-white/70">API/hr</p>
+                                    <p className="text-lg font-bold">{resolvedToday.length}</p>
+                                    <p className="text-[10px] text-white/70">Resolved</p>
                                 </div>
                             </div>
                         </div>
