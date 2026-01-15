@@ -169,7 +169,7 @@ export function MapViewPage() {
                     </MapContainer>
 
                     <div className={`fixed lg:absolute top-20 lg:top-4 left-4 w-[calc(100%-2rem)] lg:w-80 flex flex-col gap-3 z-[1001] max-h-[calc(100%-6rem)] lg:max-h-[calc(100%-2rem)] transition-transform duration-300 ${showFilters ? 'translate-x-0' : '-translate-x-[calc(100%+1rem)]'}`}>
-                        <div className="bg-white dark:bg-[#1b1f27] rounded-lg shadow-lg border border-slate-200 dark:border-[#282d39] p-2">
+                        <div className="bg-white dark:bg-[#1b1f27] rounded-lg shadow-lg border border-slate-200 dark:border-[#282d39] p-2 flex items-center gap-2">
                             <label className="flex w-full items-center gap-2">
                                 <div className="text-slate-400 dark:text-[#9ca4ba] pl-2">
                                     <Search className="h-5 w-5" />
@@ -180,7 +180,24 @@ export function MapViewPage() {
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
+                                {searchQuery && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            setSearchQuery('')
+                                        }}
+                                        className="p-1 text-slate-400 dark:text-[#9ca4ba] hover:text-slate-600 dark:hover:text-white rounded-full hover:bg-slate-100 dark:hover:bg-[#282d39] transition-colors mr-1"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
                             </label>
+                            <button
+                                onClick={() => setShowFilters(false)}
+                                className="p-2 text-slate-400 dark:text-[#9ca4ba] hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#282d39] rounded-lg transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
                         </div>
 
                         <div className="bg-white dark:bg-[#1b1f27] rounded-xl shadow-xl border border-slate-200 dark:border-[#282d39] overflow-hidden flex flex-col max-h-[60vh]">
@@ -209,7 +226,7 @@ export function MapViewPage() {
 
                     <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="fixed lg:absolute top-20 lg:top-4 left-4 z-[1000] lg:hidden flex items-center justify-center size-10 bg-white dark:bg-[#1b1f27] rounded-lg shadow-lg border border-slate-200 dark:border-[#282d39] text-slate-600 dark:text-white"
+                        className="fixed lg:absolute top-20 lg:top-4 left-4 z-[1000] flex items-center justify-center size-10 bg-white dark:bg-[#1b1f27] rounded-lg shadow-lg border border-slate-200 dark:border-[#282d39] text-slate-600 dark:text-white"
                         style={{ display: showFilters ? 'none' : 'flex' }}
                     >
                         <Filter className="h-5 w-5" />
