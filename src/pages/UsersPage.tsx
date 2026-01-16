@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, MoreVertical, Pencil, Trash2, Shield, X } from 'lucide-react'
+import { Plus, Search, MoreVertical, Pencil, Trash2, Shield, X, Building2 } from 'lucide-react'
 import { usersApi } from '../api/users'
+import { organizationsApi } from '../api/organizations'
 import { useAuth } from '../context/AuthContext'
 import {
     User,
     UserRoleType,
+    Organization,
     getCreatableRoles,
     hasMinimumRole,
     ROLE_LABELS,
@@ -16,11 +18,13 @@ interface CreateUserForm {
     firstName: string
     lastName: string
     role: UserRoleType
+    orgId: string
 }
 
 export function UsersPage() {
     const { user: currentUser } = useAuth()
     const [users, setUsers] = useState<User[]>([])
+    const [organizations, setOrganizations] = useState<Organization[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
@@ -29,7 +33,10 @@ export function UsersPage() {
     const [createError, setCreateError] = useState<string | null>(null)
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
 
-    const creatableRoles = currentUser ? getCreatableRoles(currentUser.role) : []
+    // Exclude GOV_ADMIN from generic user creation (handled in specialized page)
+    const creatableRoles = currentUser
+        ? getCreatableRoles(currentUser.role).filter(r => r !== 'GOV_ADMIN')
+        : []
 
     const [formData, setFormData] = useState<CreateUserForm>({
         email: '',
@@ -37,23 +44,38 @@ export function UsersPage() {
         firstName: '',
         lastName: '',
         role: creatableRoles[0] || 'RESPONDER',
+        orgId: '',
     })
 
     useEffect(() => {
-        fetchUsers()
-    }, [])
-
-    const fetchUsers = async () => {
-        try {
+        const fetchData = async () => {
             setIsLoading(true)
-            const response = await usersApi.getAll()
-            setUsers(response.data || [])
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch users')
-        } finally {
-            setIsLoading(false)
+            try {
+                const [usersResponse, orgsResponse] = await Promise.all([
+                    usersApi.getAll(),
+                    hasMinimumRole(currentUser?.role || 'CITIZEN', 'ORG_ADMIN')
+                        ? organizationsApi.getAll()
+                        : Promise.resolve([])
+                ])
+
+                if (Array.isArray(usersResponse)) {
+                    setUsers(usersResponse)
+                } else if (usersResponse && 'data' in usersResponse && Array.isArray((usersResponse as any).data)) {
+                    setUsers((usersResponse as any).data)
+                } else {
+                    setUsers([])
+                }
+
+                setOrganizations(orgsResponse || [])
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to fetch data')
+            } finally {
+                setIsLoading(false)
+            }
         }
-    }
+
+        fetchData()
+    }, [currentUser])
 
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -61,7 +83,12 @@ export function UsersPage() {
         setIsCreating(true)
 
         try {
-            await usersApi.create(formData)
+            const payload = {
+                ...formData,
+                orgId: formData.orgId || undefined
+            }
+
+            await usersApi.create(payload)
             setShowCreateModal(false)
             setFormData({
                 email: '',
@@ -69,8 +96,16 @@ export function UsersPage() {
                 firstName: '',
                 lastName: '',
                 role: creatableRoles[0] || 'RESPONDER',
+                orgId: '',
             })
-            fetchUsers()
+            const response = await usersApi.getAll()
+            if (Array.isArray(response)) {
+                setUsers(response)
+            } else if (response && 'data' in response && Array.isArray((response as any).data)) {
+                setUsers((response as any).data)
+            } else {
+                setUsers([])
+            }
         } catch (err) {
             setCreateError(err instanceof Error ? err.message : 'Failed to create user')
         } finally {
@@ -82,7 +117,14 @@ export function UsersPage() {
         if (!confirm('Are you sure you want to delete this user?')) return
         try {
             await usersApi.delete(userId)
-            fetchUsers()
+            const response = await usersApi.getAll()
+            if (Array.isArray(response)) {
+                setUsers(response)
+            } else if (response && 'data' in response && Array.isArray((response as any).data)) {
+                setUsers((response as any).data)
+            } else {
+                setUsers([])
+            }
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Failed to delete user')
         }
@@ -104,6 +146,10 @@ export function UsersPage() {
             CITIZEN: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
         }
         return colors[role] || colors.CITIZEN
+    }
+
+    const showOrgSelect = (role: UserRoleType) => {
+        return ['GOV_ADMIN', 'ORG_ADMIN', 'DISPATCHER', 'RESPONDER'].includes(role) && hasMinimumRole(currentUser?.role || 'CITIZEN', 'GOV_ADMIN')
     }
 
     if (!currentUser || !hasMinimumRole(currentUser.role, 'ORG_ADMIN')) {
@@ -161,6 +207,7 @@ export function UsersPage() {
                                 <tr className="border-b border-slate-200 dark:border-slate-700">
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">User</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Role</th>
+                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Organization</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Created</th>
                                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actions</th>
                                 </tr>
@@ -168,64 +215,77 @@ export function UsersPage() {
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                                 {filteredUsers.length === 0 ? (
                                     <tr>
-                                        <td colSpan={4} className="py-8 text-center text-slate-500 dark:text-slate-400">
+                                        <td colSpan={5} className="py-8 text-center text-slate-500 dark:text-slate-400">
                                             No users found
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredUsers.map((user) => (
-                                        <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                                            <td className="py-3 px-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                                                        {user.firstName[0]}{user.lastName[0]}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-medium text-slate-900 dark:text-white">
-                                                            {user.firstName} {user.lastName}
-                                                        </p>
-                                                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                                                            {user.email}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
-                                                    <Shield className="h-3 w-3" />
-                                                    {ROLE_LABELS[user.role]}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 px-4 text-sm text-slate-500 dark:text-slate-400">
-                                                {new Date(user.createdAt).toLocaleDateString()}
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <div className="relative flex justify-end">
-                                                    <button
-                                                        onClick={() => setActiveDropdown(activeDropdown === user.id ? null : user.id)}
-                                                        className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400"
-                                                    >
-                                                        <MoreVertical className="h-5 w-5" />
-                                                    </button>
-                                                    {activeDropdown === user.id && (
-                                                        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-1 z-10">
-                                                            <button className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
-                                                                <Pencil className="h-4 w-4" />
-                                                                Edit User
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteUser(user.id)}
-                                                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                                Delete User
-                                                            </button>
+                                    filteredUsers.map((user) => {
+                                        const userOrg = organizations.find(o => o.id === user.orgId)
+                                        return (
+                                            <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                                                <td className="py-3 px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+                                                            {user.firstName[0]}{user.lastName[0]}
                                                         </div>
+                                                        <div>
+                                                            <p className="font-medium text-slate-900 dark:text-white">
+                                                                {user.firstName} {user.lastName}
+                                                            </p>
+                                                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                                                {user.email}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
+                                                        <Shield className="h-3 w-3" />
+                                                        {ROLE_LABELS[user.role]}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    {userOrg ? (
+                                                        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                                                            <Building2 className="h-4 w-4 text-slate-400" />
+                                                            <span className="text-sm font-medium">{userOrg.name}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-sm text-slate-400">-</span>
                                                     )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                </td>
+                                                <td className="py-3 px-4 text-sm text-slate-500 dark:text-slate-400">
+                                                    {new Date(user.createdAt).toLocaleDateString()}
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <div className="relative flex justify-end">
+                                                        <button
+                                                            onClick={() => setActiveDropdown(activeDropdown === user.id ? null : user.id)}
+                                                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            <MoreVertical className="h-5 w-5" />
+                                                        </button>
+                                                        {activeDropdown === user.id && (
+                                                            <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-1 z-10">
+                                                                <button className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+                                                                    <Pencil className="h-4 w-4" />
+                                                                    Edit User
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteUser(user.id)}
+                                                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                    Delete User
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })
                                 )}
                             </tbody>
                         </table>
@@ -235,106 +295,189 @@ export function UsersPage() {
 
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md">
-                        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Create User</h2>
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-2xl transform transition-all">
+                        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Create New User</h2>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Fill in the details to create a new user account.</p>
+                            </div>
                             <button
                                 onClick={() => setShowCreateModal(false)}
-                                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500"
+                                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 transition-colors"
                             >
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
-                        <form onSubmit={handleCreateUser} className="p-4 space-y-4">
-                            {createError && (
-                                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm">
-                                    {createError}
+
+                        <form onSubmit={handleCreateUser}>
+                            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                                {createError && (
+                                    <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg text-sm flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-red-600 dark:bg-red-400" />
+                                        {createError}
+                                    </div>
+                                )}
+
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 pb-2">
+                                        Personal Details
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                                                First Name <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder="e.g. John"
+                                                value={formData.firstName}
+                                                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                                                className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                                                Last Name <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder="e.g. Doe"
+                                                value={formData.lastName}
+                                                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                                                className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                        First Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.firstName}
-                                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                                        className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
-                                    />
+
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 pb-2">
+                                        Account Security
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                                                Email Address <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="email"
+                                                required
+                                                placeholder="john.doe@example.com"
+                                                value={formData.email}
+                                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                                                Password <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="password"
+                                                required
+                                                placeholder="••••••••"
+                                                value={formData.password}
+                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                            />
+                                            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                                Must be at least 8 characters with explicit complexity requirements.
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                        Last Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.lastName}
-                                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                                        className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
-                                    />
+
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 pb-2">
+                                        Role & Permissions
+                                    </h3>
+                                    <div className="grid grid-cols-1 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                                                User Role <span className="text-red-500">*</span>
+                                            </label>
+                                            <div className="relative">
+                                                <select
+                                                    required
+                                                    value={formData.role}
+                                                    onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRoleType })}
+                                                    className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent appearance-none transition-all"
+                                                >
+                                                    {creatableRoles
+                                                        .map((role) => (
+                                                            <option key={role} value={role}>
+                                                                {ROLE_LABELS[role]}
+                                                            </option>
+                                                        ))}
+                                                </select>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                                    <Shield className="h-4 w-4" />
+                                                </div>
+                                            </div>
+                                            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                                The role determines what actions the user can perform.
+                                            </p>
+                                        </div>
+
+                                        {showOrgSelect(formData.role) && (
+                                            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                                                    Organization Assignment <span className="text-red-500">*</span>
+                                                </label>
+                                                <div className="relative">
+                                                    <select
+                                                        value={formData.orgId}
+                                                        onChange={(e) => setFormData({ ...formData, orgId: e.target.value })}
+                                                        className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent appearance-none transition-all"
+                                                        required
+                                                    >
+                                                        <option value="">Select an organization...</option>
+                                                        {organizations.map((org) => (
+                                                            <option key={org.id} value={org.id}>
+                                                                {org.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                                        <Building2 className="h-4 w-4" />
+                                                    </div>
+                                                </div>
+                                                <p className="mt-1.5 text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></span>
+                                                    This user will be strictly linked to the selected organization.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                    Email
-                                </label>
-                                <input
-                                    type="email"
-                                    required
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                    Password
-                                </label>
-                                <input
-                                    type="password"
-                                    required
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                    Role
-                                </label>
-                                <select
-                                    required
-                                    value={formData.role}
-                                    onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRoleType })}
-                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
-                                >
-                                    {creatableRoles.map((role) => (
-                                        <option key={role} value={role}>
-                                            {ROLE_LABELS[role]}
-                                        </option>
-                                    ))}
-                                </select>
-                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                    You can only create users with roles below your own level.
-                                </p>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-4">
+
+                            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-b-xl">
                                 <button
                                     type="button"
                                     onClick={() => setShowCreateModal(false)}
-                                    className="px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                                    className="px-5 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg transition-all shadow-sm hover:shadow"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isCreating}
-                                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                                    className="px-5 py-2.5 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-all shadow-sm hover:shadow-primary/25 disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
                                 >
-                                    {isCreating ? 'Creating...' : 'Create User'}
+                                    {isCreating ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Creating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Plus className="h-4 w-4" />
+                                            Create User
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>

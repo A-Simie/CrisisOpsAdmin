@@ -12,6 +12,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { EditProfilePage } from './pages/EditProfilePage'
 import { UsersPage } from './pages/UsersPage'
 import { OrganizationsPage } from './pages/OrganizationsPage'
+import { GovAdminsPage } from './pages/GovAdminsPage'
 import { hasMinimumRole, UserRoleType } from './types/api'
 import { ReactNode } from 'react'
 
@@ -63,6 +64,11 @@ function AuthenticatedApp() {
                 <Route path="/organizations" element={
                     <RoleGuard minRole="GOV_ADMIN">
                         <OrganizationsPage />
+                    </RoleGuard>
+                } />
+                <Route path="/gov-admins" element={
+                    <RoleGuard minRole="SUPER_ADMIN">
+                        <GovAdminsPage />
                     </RoleGuard>
                 } />
                 <Route path="/profile" element={<ProfilePage />} />

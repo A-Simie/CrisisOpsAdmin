@@ -2,10 +2,11 @@ import { apiClient } from './client'
 import type { User, PaginatedResponse } from '../types/api'
 
 export const usersApi = {
-  getAll: (page?: number, limit?: number): Promise<PaginatedResponse<User>> => {
+  getAll: (page?: number, limit?: number, role?: string): Promise<PaginatedResponse<User>> => {
     const params = new URLSearchParams()
     if (page !== undefined) params.append('page', String(page))
     if (limit !== undefined) params.append('limit', String(limit))
+    if (role) params.append('role', role)
     const query = params.toString()
     return apiClient.get<PaginatedResponse<User>>(`/users${query ? `?${query}` : ''}`)
   },

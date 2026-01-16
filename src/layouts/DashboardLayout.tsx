@@ -15,6 +15,7 @@ import {
     HeartPulse,
     Menu,
     X,
+    Landmark,
 } from 'lucide-react'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { useState } from 'react'
@@ -43,6 +44,7 @@ const getNavItems = (userRole: UserRoleType): NavItem[] => {
         { icon: Map, label: 'Map View', path: 'map-view' },
         { icon: Users, label: 'Users', path: 'users', minRole: 'ORG_ADMIN' },
         { icon: Building2, label: 'Organizations', path: 'organizations', minRole: 'GOV_ADMIN' },
+        { icon: Landmark, label: 'Govt. Officials', path: 'gov-admins', minRole: 'SUPER_ADMIN' },
     ]
 
     return allItems.filter(item =>

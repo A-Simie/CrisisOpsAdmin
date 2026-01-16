@@ -65,6 +65,21 @@ export interface Organization {
   id: string
   name: string
   type: string
+  tier: 'BASIC' | 'PREMIUM' | 'ENTERPRISE'
+  contactEmail: string
+  contactPhone: string
+  headquarters: {
+    address: string
+    city: string
+    state: string
+    latitude: number
+    longitude: number
+  }
+  serviceArea: {
+    states: string[]
+    cities: string[]
+    radiusKm?: number
+  }
   isActive: boolean
   settings?: Record<string, unknown>
   createdAt: string

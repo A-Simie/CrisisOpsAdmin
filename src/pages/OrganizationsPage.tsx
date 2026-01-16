@@ -11,6 +11,24 @@ interface CreateOrgForm {
     name: string
     type: OrganizationType
     tier: OrganizationTier
+    contactEmail: string
+    contactPhone: string
+    headquarters: {
+        address: string
+        city: string
+        state: string
+        latitude: number
+        longitude: number
+    }
+    serviceArea: {
+        states: string
+        cities: string
+        radiusKm: number
+    }
+    settings: {
+        autoAssignIncidents: boolean
+        maxResponseTimeMinutes: number
+    }
 }
 
 const ORG_TYPE_LABELS: Record<OrganizationType, string> = {
@@ -41,6 +59,24 @@ export function OrganizationsPage() {
         name: '',
         type: 'GOVERNMENT',
         tier: 'BASIC',
+        contactEmail: '',
+        contactPhone: '',
+        headquarters: {
+            address: '',
+            city: '',
+            state: '',
+            latitude: 6.5244,
+            longitude: 3.3792,
+        },
+        serviceArea: {
+            states: '',
+            cities: '',
+            radiusKm: 50,
+        },
+        settings: {
+            autoAssignIncidents: true,
+            maxResponseTimeMinutes: 30,
+        },
     })
 
     useEffect(() => {
@@ -65,9 +101,44 @@ export function OrganizationsPage() {
         setIsCreating(true)
 
         try {
-            await organizationsApi.create(formData)
+            const payload = {
+                ...formData,
+                serviceArea: {
+                    states: formData.serviceArea.states.split(',').map(s => s.trim()).filter(Boolean),
+                    cities: formData.serviceArea.cities.split(',').map(s => s.trim()).filter(Boolean),
+                    radiusKm: Number(formData.serviceArea.radiusKm),
+                },
+                headquarters: {
+                    ...formData.headquarters,
+                    latitude: Number(formData.headquarters.latitude),
+                    longitude: Number(formData.headquarters.longitude),
+                },
+            }
+            await organizationsApi.create(payload)
             setShowCreateModal(false)
-            setFormData({ name: '', type: 'GOVERNMENT', tier: 'BASIC' })
+            setFormData({
+                name: '',
+                type: 'GOVERNMENT',
+                tier: 'BASIC',
+                contactEmail: '',
+                contactPhone: '',
+                headquarters: {
+                    address: '',
+                    city: '',
+                    state: '',
+                    latitude: 6.5244,
+                    longitude: 3.3792,
+                },
+                serviceArea: {
+                    states: '',
+                    cities: '',
+                    radiusKm: 50,
+                },
+                settings: {
+                    autoAssignIncidents: true,
+                    maxResponseTimeMinutes: 30,
+                },
+            })
             fetchOrganizations()
         } catch (err) {
             setCreateError(err instanceof Error ? err.message : 'Failed to create organization')
@@ -163,8 +234,8 @@ export function OrganizationsPage() {
                             <div
                                 key={org.id}
                                 className={`bg-white dark:bg-slate-800 rounded-xl border ${org.isActive
-                                        ? 'border-slate-200 dark:border-slate-700'
-                                        : 'border-red-200 dark:border-red-900/50 opacity-60'
+                                    ? 'border-slate-200 dark:border-slate-700'
+                                    : 'border-red-200 dark:border-red-900/50 opacity-60'
                                     } p-4 relative`}
                             >
                                 <div className="absolute top-4 right-4">
@@ -179,8 +250,8 @@ export function OrganizationsPage() {
                                             <button
                                                 onClick={() => handleToggleActive(org)}
                                                 className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${org.isActive
-                                                        ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-                                                        : 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+                                                    ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                                    : 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
                                                     }`}
                                             >
                                                 {org.isActive ? (
@@ -230,9 +301,9 @@ export function OrganizationsPage() {
             )}
 
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md">
-                        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all duration-300">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700 transition-all duration-300">
+                        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800 z-10">
                             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Create Organization</h2>
                             <button
                                 onClick={() => setShowCreateModal(false)}
@@ -260,37 +331,189 @@ export function OrganizationsPage() {
                                     placeholder="Lagos Fire Service"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                    Type
-                                </label>
-                                <select
-                                    required
-                                    value={formData.type}
-                                    onChange={(e) => setFormData({ ...formData, type: e.target.value as OrganizationType })}
-                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
-                                >
-                                    {Object.entries(ORG_TYPE_LABELS).map(([value, label]) => (
-                                        <option key={value} value={value}>{label}</option>
-                                    ))}
-                                </select>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                        Type
+                                    </label>
+                                    <select
+                                        required
+                                        value={formData.type}
+                                        onChange={(e) => setFormData({ ...formData, type: e.target.value as OrganizationType })}
+                                        className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
+                                    >
+                                        {Object.entries(ORG_TYPE_LABELS).map(([value, label]) => (
+                                            <option key={value} value={value}>{label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                        Tier
+                                    </label>
+                                    <select
+                                        required
+                                        value={formData.tier}
+                                        onChange={(e) => setFormData({ ...formData, tier: e.target.value as OrganizationTier })}
+                                        className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
+                                    >
+                                        {Object.entries(ORG_TIER_LABELS).map(([value, label]) => (
+                                            <option key={value} value={value}>{label}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                    Tier
-                                </label>
-                                <select
-                                    required
-                                    value={formData.tier}
-                                    onChange={(e) => setFormData({ ...formData, tier: e.target.value as OrganizationTier })}
-                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
-                                >
-                                    {Object.entries(ORG_TIER_LABELS).map(([value, label]) => (
-                                        <option key={value} value={value}>{label}</option>
-                                    ))}
-                                </select>
+
+                            <div className="space-y-4 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Contact Information</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                            Email
+                                        </label>
+                                        <input
+                                            type="email"
+                                            required
+                                            value={formData.contactEmail}
+                                            onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                                            className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
+                                            placeholder="info@org.com"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                            Phone
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            required
+                                            value={formData.contactPhone}
+                                            onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                                            className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
+                                            placeholder="+234..."
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex justify-end gap-3 pt-4">
+
+                            <div className="space-y-4 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Headquarters</h3>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                        Address
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.headquarters.address}
+                                        onChange={(e) => setFormData({ ...formData, headquarters: { ...formData.headquarters, address: e.target.value } })}
+                                        className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
+                                        placeholder="123 Main St"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                            City
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={formData.headquarters.city}
+                                            onChange={(e) => setFormData({ ...formData, headquarters: { ...formData.headquarters, city: e.target.value } })}
+                                            className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                            State
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={formData.headquarters.state}
+                                            onChange={(e) => setFormData({ ...formData, headquarters: { ...formData.headquarters, state: e.target.value } })}
+                                            className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                            Latitude
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            required
+                                            value={formData.headquarters.latitude}
+                                            onChange={(e) => setFormData({ ...formData, headquarters: { ...formData.headquarters, latitude: Number(e.target.value) } })}
+                                            className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                            Longitude
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            required
+                                            value={formData.headquarters.longitude}
+                                            onChange={(e) => setFormData({ ...formData, headquarters: { ...formData.headquarters, longitude: Number(e.target.value) } })}
+                                            className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Service Area</h3>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                        States (comma separated)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.serviceArea.states}
+                                        onChange={(e) => setFormData({ ...formData, serviceArea: { ...formData.serviceArea, states: e.target.value } })}
+                                        className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
+                                        placeholder="Lagos, Ogun, Oyo"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                        Radius (km)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="1"
+                                        value={formData.serviceArea.radiusKm}
+                                        onChange={(e) => setFormData({ ...formData, serviceArea: { ...formData.serviceArea, radiusKm: Number(e.target.value) } })}
+                                        className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Settings</h3>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="autoAssign"
+                                        checked={formData.settings.autoAssignIncidents}
+                                        onChange={(e) => setFormData({ ...formData, settings: { ...formData.settings, autoAssignIncidents: e.target.checked } })}
+                                        className="rounded border-slate-300 text-primary focus:ring-primary"
+                                    />
+                                    <label htmlFor="autoAssign" className="text-sm text-slate-700 dark:text-slate-300">
+                                        Auto-assign incidents
+                                    </label>
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
                                 <button
                                     type="button"
                                     onClick={() => setShowCreateModal(false)}
