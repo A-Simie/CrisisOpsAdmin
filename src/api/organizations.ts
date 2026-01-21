@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { Organization, User } from '../types/api'
+import type { Organization } from '../types/api'
 
 export const organizationsApi = {
   getAll: (search?: string): Promise<Organization[]> => {

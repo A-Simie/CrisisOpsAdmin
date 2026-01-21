@@ -194,7 +194,6 @@ function SignOutCard({ onLogout }: { onLogout: () => void }) {
 }
 
 function NotificationsSettings() {
-    const { user } = useAuth()
 
     return (
         <div className="p-6 space-y-6">

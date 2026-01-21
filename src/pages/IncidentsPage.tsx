@@ -423,7 +423,6 @@ export function IncidentsPage() {
         inc.id.includes(searchQuery)
     )
 
-    const newCount = incidents.filter(i => i.status === 'REPORTED').length
 
     const lightTileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
     const darkTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
@@ -719,7 +718,10 @@ export function IncidentsPage() {
                                             <XCircle className="h-4 w-4" />
                                             Mark as False Alarm
                                         </button>
-                                        <button className="w-full h-9 rounded-lg border border-slate-200 dark:border-[#282d39] hover:bg-white dark:hover:bg-[#282d39] text-slate-700 dark:text-white font-medium text-sm transition-colors flex items-center justify-center gap-2">
+                                        <button
+                                            onClick={() => handleConfirmIncident(selectedIncident.id)}
+                                            className="w-full h-9 rounded-lg border border-slate-200 dark:border-[#282d39] hover:bg-white dark:hover:bg-[#282d39] text-slate-700 dark:text-white font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                                        >
                                             <ShieldCheck className="h-4 w-4" />
                                             {selectedIncident.communityConfirmations > 0 ? 'Confirmed' : 'Confirm'}
                                         </button>
