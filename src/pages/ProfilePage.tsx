@@ -194,6 +194,8 @@ function SignOutCard({ onLogout }: { onLogout: () => void }) {
 }
 
 function NotificationsSettings() {
+    const { user } = useAuth()
+
     return (
         <div className="p-6 space-y-6">
             <div>
@@ -225,7 +227,6 @@ function NotificationsSettings() {
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                             <input
                                 type="email"
-                                defaultValue="admin@crisisops.org"
                                 className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm pl-10 pr-3 focus:ring-2 focus:ring-primary"
                             />
                         </div>
@@ -236,7 +237,7 @@ function NotificationsSettings() {
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                             <input
                                 type="text"
-                                defaultValue="+234 801 234 5678"
+                                placeholder="+1 234 567 8900"
                                 className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm pl-10 pr-3 focus:ring-2 focus:ring-primary"
                             />
                         </div>

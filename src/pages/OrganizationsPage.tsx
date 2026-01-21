@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Search, Building2, MoreVertical, Power, PowerOff, X } from 'lucide-react'
+import { ActionDropdown } from '../components/ActionDropdown'
 import { organizationsApi } from '../api/organizations'
 import { useAuth } from '../context/AuthContext'
 import { Organization, hasMinimumRole } from '../types/api'
@@ -239,35 +240,38 @@ export function OrganizationsPage() {
                                     } p-4 relative`}
                             >
                                 <div className="absolute top-4 right-4">
-                                    <button
-                                        onClick={() => setActiveDropdown(activeDropdown === org.id ? null : org.id)}
-                                        className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400"
-                                    >
-                                        <MoreVertical className="h-5 w-5" />
-                                    </button>
-                                    {activeDropdown === org.id && (
-                                        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-1 z-10">
+                                    <ActionDropdown
+                                        isOpen={activeDropdown === org.id}
+                                        onOpen={() => setActiveDropdown(org.id)}
+                                        onClose={() => setActiveDropdown(null)}
+                                        trigger={
                                             <button
-                                                onClick={() => handleToggleActive(org)}
-                                                className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${org.isActive
-                                                    ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-                                                    : 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
-                                                    }`}
+                                                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400 transition-colors"
                                             >
-                                                {org.isActive ? (
-                                                    <>
-                                                        <PowerOff className="h-4 w-4" />
-                                                        Deactivate
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Power className="h-4 w-4" />
-                                                        Activate
-                                                    </>
-                                                )}
+                                                <MoreVertical className="h-5 w-5" />
                                             </button>
-                                        </div>
-                                    )}
+                                        }
+                                    >
+                                        <button
+                                            onClick={() => handleToggleActive(org)}
+                                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${org.isActive
+                                                ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                                : 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+                                                }`}
+                                        >
+                                            {org.isActive ? (
+                                                <>
+                                                    <PowerOff className="h-4 w-4" />
+                                                    Deactivate
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Power className="h-4 w-4" />
+                                                    Activate
+                                                </>
+                                            )}
+                                        </button>
+                                    </ActionDropdown>
                                 </div>
 
                                 <div className="flex items-start gap-3">
@@ -301,8 +305,14 @@ export function OrganizationsPage() {
             )}
 
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all duration-300">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700 transition-all duration-300">
+                <div
+                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all duration-300"
+                    onClick={() => setShowCreateModal(false)}
+                >
+                    <div
+                        className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700 transition-all duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800 z-10">
                             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Create Organization</h2>
                             <button

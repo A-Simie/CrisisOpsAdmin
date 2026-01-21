@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Search, MoreVertical, Pencil, Trash2, Landmark, X, MapPin } from 'lucide-react'
+import { ActionDropdown } from '../components/ActionDropdown'
 import { usersApi } from '../api/users'
 import { organizationsApi } from '../api/organizations'
 import {
@@ -286,29 +287,30 @@ export function GovAdminsPage() {
                                                 </span>
                                             </td>
                                             <td className="py-3 px-4">
-                                                <div className="relative flex justify-end">
-                                                    <button
-                                                        onClick={() => setActiveDropdown(activeDropdown === user.id ? null : user.id)}
-                                                        className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400"
-                                                    >
-                                                        <MoreVertical className="h-5 w-5" />
+                                                <ActionDropdown
+                                                    isOpen={activeDropdown === user.id}
+                                                    onOpen={() => setActiveDropdown(user.id)}
+                                                    onClose={() => setActiveDropdown(null)}
+                                                    trigger={
+                                                        <button
+                                                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400 transition-colors"
+                                                        >
+                                                            <MoreVertical className="h-5 w-5" />
+                                                        </button>
+                                                    }
+                                                >
+                                                    <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                                        <Pencil className="h-4 w-4" />
+                                                        Edit Details
                                                     </button>
-                                                    {activeDropdown === user.id && (
-                                                        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-1 z-10">
-                                                            <button className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
-                                                                <Pencil className="h-4 w-4" />
-                                                                Edit Details
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteUser(user.id)}
-                                                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                                Revoke Access
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                    <button
+                                                        onClick={() => handleDeleteUser(user.id)}
+                                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                        Revoke Access
+                                                    </button>
+                                                </ActionDropdown>
                                             </td>
                                         </tr>
                                     ))
@@ -320,8 +322,14 @@ export function GovAdminsPage() {
             )}
 
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-2xl transform transition-all flex flex-col max-h-[90vh]">
+                <div
+                    className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                    onClick={() => setShowCreateModal(false)}
+                >
+                    <div
+                        className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-2xl transform transition-all flex flex-col max-h-[90vh]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="flex-none flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
                             <div>
                                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">Onboard Government Official</h2>

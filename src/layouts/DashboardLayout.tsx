@@ -14,8 +14,9 @@ import {
     LogOut,
     HeartPulse,
     Menu,
-    X,
+    Loader2,
     Landmark,
+    X,
 } from 'lucide-react'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { useState } from 'react'
@@ -182,12 +183,6 @@ export function DashboardLayout({ children, onLogout, currentPage, onNavigate }:
 
                         <div className="flex items-center gap-2 lg:gap-3">
                             <ThemeToggle />
-                            <button
-                                className="hidden sm:flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                                title="Refresh Data"
-                            >
-                                <RefreshCw className="h-5 w-5" />
-                            </button>
                             <button className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
                                 <Bell className="h-5 w-5" />
                                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-[#111318]" />

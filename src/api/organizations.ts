@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { Organization } from '../types/api'
+import type { Organization, User } from '../types/api'
 
 export const organizationsApi = {
   getAll: (search?: string): Promise<Organization[]> => {
@@ -28,4 +28,6 @@ export const organizationsApi = {
   deactivate: (id: string): Promise<Organization> => {
     return apiClient.patch<Organization>(`/organizations/${id}/deactivate`)
   },
+
+
 }

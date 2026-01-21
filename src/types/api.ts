@@ -86,30 +86,80 @@ export interface Organization {
   updatedAt: string
 }
 
+// Incident status enum matching backend
+export const IncidentStatus = {
+  REPORTED: 'REPORTED',
+  VERIFIED: 'VERIFIED',
+  ASSIGNED: 'ASSIGNED',
+  DISPATCHED: 'DISPATCHED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  RESOLVED: 'RESOLVED',
+  CLOSED: 'CLOSED',
+  FALSE_ALARM: 'FALSE_ALARM',
+} as const
+
+export type IncidentStatusType = typeof IncidentStatus[keyof typeof IncidentStatus]
+
+// Hazard type enum matching backend
+export const HazardType = {
+  FLOOD: 'FLOOD',
+  FIRE: 'FIRE',
+  EARTHQUAKE: 'EARTHQUAKE',
+  STORM: 'STORM',
+  LANDSLIDE: 'LANDSLIDE',
+  DROUGHT: 'DROUGHT',
+  EPIDEMIC: 'EPIDEMIC',
+  INFRASTRUCTURE: 'INFRASTRUCTURE',
+  SECURITY: 'SECURITY',
+  ACCIDENT: 'ACCIDENT',
+  OTHER: 'OTHER',
+} as const
+
+export type HazardTypeType = typeof HazardType[keyof typeof HazardType]
+
+// Severity enum
+export const IncidentSeverity = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
+} as const
+
+export type IncidentSeverityType = typeof IncidentSeverity[keyof typeof IncidentSeverity]
+
+export interface IncidentMedia {
+  url: string
+  type: 'IMAGE' | 'VIDEO'
+  caption?: string
+}
+
 export interface Incident {
   id: string
-  type: string
+  reporterId: string
+  primaryOrgId: string | null
+  hazardType: HazardTypeType
+  severity: IncidentSeverityType
+  status: IncidentStatusType
+  title: string
   description: string
   location: {
     latitude: number
     longitude: number
-    address?: string
+    address: string | null
+    city: string | null
+    state: string | null
   }
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-  status: 'PENDING' | 'ACTIVE' | 'RESPONDING' | 'RESOLVED'
-  reportedBy?: string
-  assignedTo?: string
-  organizationId?: string
-  notes?: IncidentNote[]
-  mediaUrls?: string[]
-  verified: boolean
+  media: IncidentMedia[]
+  estimatedAffectedCount: number
+  communityConfirmations: number
+  responseTimeMinutes: number | null
   createdAt: string
   updatedAt: string
 }
 
 export interface IncidentNote {
-  id: string
-  content: string
+  orgId: string
+  note: string
   createdBy: string
   createdAt: string
 }
@@ -155,17 +205,33 @@ export interface PaginatedResponse<T> {
   limit: number
 }
 
+// Cursor-based pagination for incidents
+export interface CursorPaginatedResponse<T> {
+  data: T[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
 export interface IncidentFilters {
-  status?: string
-  severity?: string
-  type?: string
-  organizationId?: string
-  page?: number
+  cursor?: string
   limit?: number
+  hazardType?: HazardTypeType
+  severity?: IncidentSeverityType
+  status?: IncidentStatusType
+  city?: string
+  state?: string
+  orgId?: string
+  startDate?: string
+  endDate?: string
 }
 
 export interface NearbyIncidentsParams {
   latitude: number
   longitude: number
-  radius?: number
+  radiusKm?: number
+  hazardType?: HazardTypeType
+  severity?: IncidentSeverityType
+  excludeResolved?: boolean
+  limit?: number
 }
+
