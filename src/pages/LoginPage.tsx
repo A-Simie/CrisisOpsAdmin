@@ -228,7 +228,7 @@ export function LoginPage() {
                                 </div>
                                 <span className="text-sm text-slate-600 dark:text-gray-300 font-medium">Active Incidents</span>
                             </div>
-                            <span className="text-2xl font-bold text-slate-900 dark:text-white">1,248</span>
+                            {/* <span className="text-2xl font-bold text-slate-900 dark:text-white">1,248</span> */}
                         </div>
                         <div className="bg-white/60 dark:bg-surface-dark/40 backdrop-blur-md border border-slate-200/50 dark:border-white/10 p-4 rounded-xl shadow-lg">
                             <div className="flex items-center gap-3 mb-2">
@@ -237,7 +237,7 @@ export function LoginPage() {
                                 </div>
                                 <span className="text-sm text-slate-600 dark:text-gray-300 font-medium">Units Deployed</span>
                             </div>
-                            <span className="text-2xl font-bold text-slate-900 dark:text-white">8,902</span>
+                            {/* <span className="text-2xl font-bold text-slate-900 dark:text-white">8,902</span> */}
                         </div>
                     </div>
 
