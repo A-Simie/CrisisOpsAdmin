@@ -1,6 +1,6 @@
 const IS_LIVE = import.meta.env.VITE_IS_LIVE === 'true'
-const API_BASE_URL = IS_LIVE 
-  ? import.meta.env.VITE_API_BASE_URL 
+const API_BASE_URL = IS_LIVE
+  ? import.meta.env.VITE_API_BASE_URL
   : (import.meta.env.VITE_API_BASE_URL_LOCAL || import.meta.env.VITE_API_BASE_URL)
 
 interface RequestOptions extends RequestInit {
@@ -12,13 +12,13 @@ let refreshPromise: Promise<boolean> | null = null
 
 const refreshAccessToken = async (): Promise<boolean> => {
   if (isRefreshing) return refreshPromise!
-  
+
   isRefreshing = true
   refreshPromise = (async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
         },
@@ -76,12 +76,12 @@ const request = async <T>(endpoint: string, options: RequestOptions = {}): Promi
   }
 
   const json = await response.json()
-  
+
   // Backend wraps responses in { success, message, data }
   if (json && typeof json === 'object' && 'data' in json) {
     return json.data as T
   }
-  
+
   return json as T
 }
 
@@ -110,7 +110,7 @@ const del = <T>(endpoint: string, options?: RequestOptions): Promise<T> => {
 }
 
 const getGoogleAuthUrl = (): string => {
-  return `${API_BASE_URL}/auth/google`
+  return `${API_BASE_URL}/auth/google?from=admin`
 }
 
 export const apiClient = {
