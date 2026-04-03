@@ -1,77 +1,65 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+const IS_LIVE = import.meta.env.VITE_IS_LIVE === 'true'
+const API_BASE_URL = IS_LIVE 
+  ? import.meta.env.VITE_API_BASE_URL 
+  : (import.meta.env.VITE_API_BASE_URL_LOCAL || import.meta.env.VITE_API_BASE_URL)
 
 interface RequestOptions extends RequestInit {
   skipAuth?: boolean
 }
 
-const getAccessToken = (): string | null => localStorage.getItem('accessToken')
-const getRefreshToken = (): string | null => localStorage.getItem('refreshToken')
-
-const setTokens = (accessToken: string, refreshToken: string): void => {
-  localStorage.setItem('accessToken', accessToken)
-  localStorage.setItem('refreshToken', refreshToken)
-}
-
-const clearTokens = (): void => {
-  localStorage.removeItem('accessToken')
-  localStorage.removeItem('refreshToken')
-}
+let isRefreshing = false
+let refreshPromise: Promise<boolean> | null = null
 
 const refreshAccessToken = async (): Promise<boolean> => {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) return false
+  if (isRefreshing) return refreshPromise!
+  
+  isRefreshing = true
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'include',
+      })
 
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    })
-
-    if (!response.ok) {
-      clearTokens()
+      return response.ok
+    } catch {
       return false
+    } finally {
+      isRefreshing = false
+      refreshPromise = null
     }
+  })()
 
-    const data = await response.json()
-    setTokens(data.accessToken, data.refreshToken)
-    return true
-  } catch {
-    clearTokens()
-    return false
-  }
+  return refreshPromise
 }
 
 const request = async <T>(endpoint: string, options: RequestOptions = {}): Promise<T> => {
   const { skipAuth = false, ...fetchOptions } = options
   const url = `${API_BASE_URL}${endpoint}`
 
-  const headers: HeadersInit = {
-    ...fetchOptions.headers,
+  const headers: Record<string, string> = {
+    'X-Requested-With': 'XMLHttpRequest',
+    ...(fetchOptions.headers as Record<string, string>),
   }
 
   // Only set application/json if not sending FormData
   if (!(fetchOptions.body instanceof FormData)) {
-    (headers as Record<string, string>)['Content-Type'] = 'application/json'
+    headers['Content-Type'] = 'application/json'
   }
 
-  if (!skipAuth) {
-    const token = getAccessToken()
-    if (token) {
-      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
-    }
-  }
+  // NOTE: Authorization header is handled via HTTP-only cookies (credentials: 'include')
+  let response = await fetch(url, { ...fetchOptions, headers, credentials: 'include' })
 
-  let response = await fetch(url, { ...fetchOptions, headers })
-
-  if (response.status === 401 && !skipAuth) {
+  // If 401 and not skipping auth, attempt a refresh
+  if (response.status === 401 && !skipAuth && !endpoint.includes('/auth/refresh')) {
     const refreshed = await refreshAccessToken()
     if (refreshed) {
-      const newToken = getAccessToken()
-      if (newToken) {
-        (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`
-      }
-      response = await fetch(url, { ...fetchOptions, headers })
+      // Retry the original request
+      response = await fetch(url, { ...fetchOptions, headers, credentials: 'include' })
     } else {
       window.dispatchEvent(new CustomEvent('auth:logout'))
       throw new Error('Session expired. Please log in again.')
@@ -90,7 +78,6 @@ const request = async <T>(endpoint: string, options: RequestOptions = {}): Promi
   const json = await response.json()
   
   // Backend wraps responses in { success, message, data }
-  // Unwrap the data field if present
   if (json && typeof json === 'object' && 'data' in json) {
     return json.data as T
   }
@@ -131,6 +118,5 @@ export const apiClient = {
   post,
   patch,
   delete: del,
-  clearTokens,
   getGoogleAuthUrl,
 }

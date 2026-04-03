@@ -4,17 +4,17 @@ import { useAuth } from '../context/AuthContext'
 
 export function AuthCallbackPage() {
     const navigate = useNavigate()
-    const { isAuthenticated, isLoading } = useAuth()
+    const { isAuthenticated, isInitializing } = useAuth()
 
     useEffect(() => {
-        if (!isLoading) {
+        if (!isInitializing) {
             if (isAuthenticated) {
                 navigate('/', { replace: true })
             } else {
                 navigate('/login', { replace: true })
             }
         }
-    }, [isAuthenticated, isLoading, navigate])
+    }, [isAuthenticated, isInitializing, navigate])
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">

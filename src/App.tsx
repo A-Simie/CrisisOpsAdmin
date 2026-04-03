@@ -80,9 +80,9 @@ function AuthenticatedApp() {
 }
 
 function AppRoutes() {
-    const { isAuthenticated, isLoading } = useAuth()
+    const { isAuthenticated, isInitializing } = useAuth()
 
-    if (isLoading) {
+    if (isInitializing) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="flex flex-col items-center gap-4">

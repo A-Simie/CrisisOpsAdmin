@@ -7,6 +7,7 @@ interface AuthContextType {
     user: User | null
     isAuthenticated: boolean
     isLoading: boolean
+    isInitializing: boolean
     error: string | null
     login: (email: string, password: string) => Promise<void>
     loginWithGoogle: () => void
@@ -19,25 +20,20 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
+    const [isInitializing, setIsInitializing] = useState(true)
+    const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     const isAuthenticated = !!user
 
     const fetchUser = useCallback(async () => {
-        const token = localStorage.getItem('accessToken')
-        if (!token) {
-            setIsLoading(false)
-            return
-        }
-
         try {
             const userData = await authApi.getProfile()
             setUser(userData)
         } catch {
-            apiClient.clearTokens()
+            setUser(null)
         } finally {
-            setIsLoading(false)
+            setIsInitializing(false)
         }
     }, [])
 
@@ -48,19 +44,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const handleLogout = () => {
             setUser(null)
-            apiClient.clearTokens()
         }
 
         window.addEventListener('auth:logout', handleLogout)
         return () => window.removeEventListener('auth:logout', handleLogout)
     }, [])
 
+    // Synchronize with URL-based token if redirected from backend (Google Login)
+    // Even though we use cookies, the backend transmits the initial accessToken 
+    // in the URL for the first redirect.
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
         const accessToken = params.get('accessToken')
 
         if (accessToken) {
-            localStorage.setItem('accessToken', accessToken)
+            // We clear the URL immediately. The cookies (refreshToken) are 
+            // already set by the backend, so we just trigger a fetchUser.
             window.history.replaceState({}, '', '/')
             fetchUser()
         }
@@ -72,10 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         try {
             const response = await authApi.login({ email, password })
-            localStorage.setItem('accessToken', response.accessToken)
-            if (response.refreshToken) {
-                localStorage.setItem('refreshToken', response.refreshToken)
-            }
+            // Tokens are set via HTTP-only cookies in the backend response
             setUser(response.user)
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Login failed'
@@ -91,13 +87,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const logout = async () => {
+        setIsLoading(true)
         try {
             await authApi.logout()
         } catch {
             // Ignore errors on logout
         } finally {
             setUser(null)
-            apiClient.clearTokens()
+            setIsLoading(false)
         }
     }
 
@@ -113,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 user,
                 isAuthenticated,
                 isLoading,
+                isInitializing,
                 error,
                 login,
                 loginWithGoogle,
