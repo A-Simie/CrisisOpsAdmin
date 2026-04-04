@@ -28,7 +28,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const fetchUser = useCallback(async () => {
         try {
             const userData = await authApi.getProfile()
-            setUser(userData)
+            // Only allow administrative roles (non-CITIZEN) in the Admin App
+            if (userData.role === 'CITIZEN') {
+                setUser(null)
+            } else {
+                setUser(userData)
+            }
         } catch {
             setUser(null)
         } finally {
@@ -74,6 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             // Step 2: Standard Login
             const response = await authApi.login({ email, password })
+            
+            // Step 3: Role-based Authorization check for Admin App
+            if (response.user.role === 'CITIZEN') {
+                throw new Error('Access denied. Admin privileges required.')
+            }
             
             // Tokens are set via HTTP-only cookies in the backend response
             setUser(response.user)
