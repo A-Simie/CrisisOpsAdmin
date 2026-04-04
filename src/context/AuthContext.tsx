@@ -9,7 +9,7 @@ interface AuthContextType {
     isInitializing: boolean
     error: string | null
     login: (email: string, password: string) => Promise<void>
-    loginWithGoogle: (email?: string) => Promise<void>
+    loginWithGoogle: () => Promise<void>
     logout: () => Promise<void>
     updateUser: (user: User) => void
     clearError: () => void
@@ -86,19 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    const loginWithGoogle = async (email?: string) => {
+    const loginWithGoogle = async () => {
         setIsLoading(true)
         setError(null)
 
         try {
-            if (!email) {
-                throw new Error('Please enter your email to proceed with Google Login')
-            }
-
-            // Step 1: Pre-authentication Email Check
-            await authApi.checkEmail(email)
-
-            // Step 2: Redirect to Google OAuth Flow
+            // Step 1: Redirect to Google OAuth Flow
+            // The backend handles the callback and verifies if the user exists.
             window.location.href = authApi.getGoogleAuthUrl()
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Google login initiation failed'
