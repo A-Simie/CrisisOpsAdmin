@@ -3,6 +3,7 @@ import type {
   User,
   LoginRequest,
   LoginResponse,
+  CheckEmailResponse,
   RegisterRequest,
   RefreshTokenResponse,
 } from '../types/api'
@@ -10,6 +11,10 @@ import type {
 export const authApi = {
   login: (credentials: LoginRequest): Promise<LoginResponse> => {
     return apiClient.post<LoginResponse>('/auth/login', credentials, { skipAuth: true })
+  },
+
+  checkEmail: (email: string): Promise<CheckEmailResponse> => {
+    return apiClient.post<CheckEmailResponse>('/auth/check-email', { email }, { skipAuth: true })
   },
 
   register: (data: RegisterRequest): Promise<{ message: string }> => {

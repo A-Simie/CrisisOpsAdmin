@@ -110,7 +110,7 @@ const del = <T>(endpoint: string, options?: RequestOptions): Promise<T> => {
 }
 
 const getGoogleAuthUrl = (): string => {
-  return `${API_BASE_URL}/auth/google?from=admin`
+  return `${API_BASE_URL}/auth/google?from=admin&action=login`
 }
 
 export const apiClient = {

@@ -146,7 +146,7 @@ export function LoginPage() {
 
                         <button
                             type="button"
-                            onClick={loginWithGoogle}
+                            onClick={() => loginWithGoogle(email)}
                             disabled={isLoading}
                             className="h-14 bg-white dark:bg-surface-dark border border-gray-300 dark:border-border-dark hover:bg-gray-50 dark:hover:bg-[#252a33] text-gray-700 dark:text-gray-200 font-medium rounded-lg transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                         >

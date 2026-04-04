@@ -9,7 +9,7 @@ interface AuthContextType {
     isInitializing: boolean
     error: string | null
     login: (email: string, password: string) => Promise<void>
-    loginWithGoogle: () => void
+    loginWithGoogle: (email?: string) => Promise<void>
     logout: () => Promise<void>
     updateUser: (user: User) => void
     clearError: () => void
@@ -69,7 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError(null)
 
         try {
+            // Step 1: Pre-authentication Email Check
+            await authApi.checkEmail(email)
+
+            // Step 2: Standard Login
             const response = await authApi.login({ email, password })
+            
             // Tokens are set via HTTP-only cookies in the backend response
             setUser(response.user)
         } catch (err) {
@@ -81,8 +86,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    const loginWithGoogle = () => {
-        window.location.href = authApi.getGoogleAuthUrl()
+    const loginWithGoogle = async (email?: string) => {
+        setIsLoading(true)
+        setError(null)
+
+        try {
+            if (!email) {
+                throw new Error('Please enter your email to proceed with Google Login')
+            }
+
+            // Step 1: Pre-authentication Email Check
+            await authApi.checkEmail(email)
+
+            // Step 2: Redirect to Google OAuth Flow
+            window.location.href = authApi.getGoogleAuthUrl()
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Google login initiation failed'
+            setError(message)
+            throw err
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     const logout = async () => {
