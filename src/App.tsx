@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { LoginPage } from './pages/LoginPage'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { AuthErrorPage } from './pages/AuthErrorPage'
+import { VerifyEmailPage } from './pages/VerifyEmailPage'
 import { DashboardLayout } from './layouts/DashboardLayout'
 import { OverviewPage } from './pages/OverviewPage'
 import { IncidentsPage } from './pages/IncidentsPage'
@@ -103,6 +104,7 @@ function AppRoutes() {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/auth/callback" element={<AuthCallbackPage />} />
                     <Route path="/auth/error" element={<AuthErrorPage />} />
+                    <Route path="/verify-email" element={<VerifyEmailPage />} />
                     <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
             )}

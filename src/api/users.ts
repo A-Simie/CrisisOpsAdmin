@@ -15,7 +15,7 @@ export const usersApi = {
     return apiClient.get<User>(`/users/${id}`)
   },
 
-  create: (data: Partial<User> & { password: string }): Promise<User> => {
+  create: (data: Partial<User> & { password?: string }): Promise<User> => {
     return apiClient.post<User>('/users', data)
   },
 

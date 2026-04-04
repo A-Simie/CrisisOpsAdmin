@@ -9,7 +9,6 @@ import {
 
 interface CreateGovAdminForm {
     email: string
-    password: string
     firstName: string
     lastName: string
     phone: string
@@ -40,7 +39,6 @@ export function GovAdminsPage() {
 
     const [formData, setFormData] = useState<CreateGovAdminForm>({
         email: '',
-        password: '',
         firstName: '',
         lastName: '',
         phone: '',
@@ -159,7 +157,6 @@ export function GovAdminsPage() {
             // 4. Create User
             await usersApi.create({
                 email: formData.email,
-                password: formData.password,
                 firstName: formData.firstName,
                 lastName: formData.lastName,
                 role: 'GOV_ADMIN',
@@ -169,7 +166,6 @@ export function GovAdminsPage() {
             setShowCreateModal(false)
             setFormData({
                 email: '',
-                password: '',
                 firstName: '',
                 lastName: '',
                 phone: '',
@@ -477,7 +473,7 @@ export function GovAdminsPage() {
                                         Account Access
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
+                                        <div className="md:col-span-1">
                                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                                                 Email Address <span className="text-red-500">*</span>
                                             </label>
@@ -487,19 +483,6 @@ export function GovAdminsPage() {
                                                 placeholder="official@state.gov.ng"
                                                 value={formData.email}
                                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                                className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                                                Password <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="password"
-                                                required
-                                                placeholder="••••••••"
-                                                value={formData.password}
-                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                                 className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                             />
                                         </div>

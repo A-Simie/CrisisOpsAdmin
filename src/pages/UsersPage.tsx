@@ -15,7 +15,6 @@ import {
 
 interface CreateUserForm {
     email: string
-    password: string
     firstName: string
     lastName: string
     role: UserRoleType
@@ -41,7 +40,6 @@ export function UsersPage() {
 
     const [formData, setFormData] = useState<CreateUserForm>({
         email: '',
-        password: '',
         firstName: '',
         lastName: '',
         role: creatableRoles[0] || 'RESPONDER',
@@ -93,7 +91,6 @@ export function UsersPage() {
             setShowCreateModal(false)
             setFormData({
                 email: '',
-                password: '',
                 firstName: '',
                 lastName: '',
                 role: creatableRoles[0] || 'RESPONDER',
@@ -365,7 +362,7 @@ export function UsersPage() {
                                         Account Security
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
+                                        <div className="md:col-span-1">
                                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                                                 Email Address <span className="text-red-500">*</span>
                                             </label>
@@ -377,22 +374,6 @@ export function UsersPage() {
                                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                                 className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                             />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                                                Password <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="password"
-                                                required
-                                                placeholder="••••••••"
-                                                value={formData.password}
-                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                                className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                            />
-                                            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                                                Must be at least 8 characters with explicit complexity requirements.
-                                            </p>
                                         </div>
                                     </div>
                                 </div>

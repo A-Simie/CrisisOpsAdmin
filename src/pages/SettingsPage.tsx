@@ -1,16 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
     Building2,
     Bell,
     Shield,
     Palette,
-    Key,
+    Key as KeyIcon,
     Volume2,
     Mail,
     Phone,
-    Lock,
+    Lock as LockIcon,
     Smartphone,
-    Globe,
+    Globe as GlobeIcon,
     Moon,
     Sun,
     Monitor,
@@ -18,18 +18,25 @@ import {
     Plus,
     Trash2,
     Eye,
-    X,
+    EyeOff,
+    Check,
+    CheckCircle,
+    AlertCircle,
+    RotateCw,
+    X as XIcon,
 } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
+import { authApi } from '../api/auth'
+import { useAuth } from '../context/AuthContext'
 
 type SettingsTab = 'organization' | 'notifications' | 'security' | 'display' | 'api-keys'
 
-const navItems: { icon: typeof Bell; label: string; tab: SettingsTab }[] = [
+const navItems: { icon: any; label: string; tab: SettingsTab }[] = [
     { icon: Building2, label: 'Organization', tab: 'organization' },
     { icon: Bell, label: 'Notifications', tab: 'notifications' },
     { icon: Shield, label: 'Security', tab: 'security' },
     { icon: Palette, label: 'Display', tab: 'display' },
-    { icon: Key, label: 'API Keys', tab: 'api-keys' },
+    { icon: KeyIcon, label: 'API Keys', tab: 'api-keys' },
 ]
 
 export function SettingsPage() {
@@ -65,7 +72,7 @@ export function SettingsPage() {
                             onClick={() => setShowSidebar(false)}
                             className="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
                         >
-                            <X className="h-5 w-5" />
+                            <XIcon className="h-5 w-5" />
                         </button>
                     </div>
 
@@ -225,7 +232,7 @@ function OrganizationSettings() {
                                     Region
                                 </label>
                                 <div className="relative">
-                                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                    <GlobeIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                                     <select className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-background-dark text-slate-900 dark:text-white focus:border-primary focus:ring-primary text-sm py-2.5 pl-10 pr-3">
                                         <option>Lagos State</option>
                                         <option>Abuja FCT</option>
@@ -254,6 +261,103 @@ function OrganizationSettings() {
 }
 
 function SecuritySettings() {
+    const { user } = useAuth()
+    const [flow, setFlow] = useState<'idle' | 'confirming' | 'resetting'>('idle')
+    const [otp, setOtp] = useState('')
+    const [newPassword, setNewPassword] = useState('')
+    const [confirmPassword, setConfirmPassword] = useState('')
+    
+    const [showNew, setShowNew] = useState(false)
+    const [showConfirm, setShowConfirm] = useState(false)
+    
+    const [isProcessing, setIsProcessing] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [success, setSuccess] = useState<string | null>(null)
+    
+    const [cooldown, setCooldown] = useState(0)
+    const timerRef = useRef<number | null>(null)
+
+    useEffect(() => {
+        if (cooldown > 0) {
+            timerRef.current = window.setInterval(() => {
+                setCooldown((prev) => prev - 1)
+            }, 1000)
+        } else if (timerRef.current) {
+            clearInterval(timerRef.current)
+        }
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current)
+        }
+    }, [cooldown])
+
+    const passwordRules = [
+        { label: 'At least 8 characters long', test: (p: string) => p.length >= 8 },
+        { label: 'Include at least one uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+        { label: 'Include at least one number', test: (p: string) => /[0-9]/.test(p) },
+        { label: 'Include at least one special character', test: (p: string) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
+    ]
+
+    const isValid = otp.length === 6 &&
+                    passwordRules.every(rule => rule.test(newPassword)) && 
+                    newPassword === confirmPassword && 
+                    newPassword !== ''
+
+    const handleInitiateReset = async () => {
+        if (!user?.email) return
+        
+        setIsProcessing(true)
+        setError(null)
+        try {
+            await authApi.forgotPassword({ email: user.email })
+            setFlow('resetting')
+            setCooldown(60)
+            setSuccess('Verification code sent to your email.')
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to send verification code')
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
+    const handleFinalReset = async () => {
+        if (!isValid || !user?.email) return
+        
+        setIsProcessing(true)
+        setError(null)
+        setSuccess(null)
+
+        try {
+            await authApi.resetPassword({
+                email: user.email,
+                otp,
+                password: newPassword
+            })
+            setSuccess('Password reset successfully!')
+            setFlow('idle')
+            setOtp('')
+            setNewPassword('')
+            setConfirmPassword('')
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to reset password')
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
+    const handleResendOtp = async () => {
+        if (cooldown > 0 || !user?.email) return
+        setIsProcessing(true)
+        try {
+            await authApi.forgotPassword({ email: user.email })
+            setCooldown(60)
+            setSuccess('A new code has been sent.')
+        } catch (err) {
+            setError('Failed to resend code.')
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
     return (
         <>
             <div className="px-4 md:px-10 py-8 border-b border-slate-200 dark:border-[#282d39]">
@@ -266,45 +370,216 @@ function SecuritySettings() {
             </div>
 
             <div className="px-4 md:px-10 py-6 flex flex-col gap-8">
-                <section>
-                    <h3 className="text-slate-900 dark:text-white text-lg font-bold mb-4 flex items-center gap-2">
-                        <Lock className="h-5 w-5 text-primary" />
-                        Password
-                    </h3>
-                    <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-[#282d39] p-6 space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Current Password
-                            </label>
-                            <input
-                                type="password"
-                                placeholder="Enter current password"
-                                className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-background-dark text-slate-900 dark:text-white focus:border-primary focus:ring-primary text-sm py-2.5 px-3"
-                            />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                    New Password
-                                </label>
-                                <input
-                                    type="password"
-                                    placeholder="Enter new password"
-                                    className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-background-dark text-slate-900 dark:text-white focus:border-primary focus:ring-primary text-sm py-2.5 px-3"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                    Confirm Password
-                                </label>
-                                <input
-                                    type="password"
-                                    placeholder="Confirm new password"
-                                    className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-background-dark text-slate-900 dark:text-white focus:border-primary focus:ring-primary text-sm py-2.5 px-3"
-                                />
-                            </div>
-                        </div>
+                {error && (
+                    <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 flex items-center gap-3 text-red-600 dark:text-red-400 text-sm">
+                        <AlertCircle className="h-4 w-4" />
+                        {error}
                     </div>
+                )}
+
+                {success && (
+                    <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20 flex items-center gap-3 text-emerald-600 dark:text-emerald-400 text-sm">
+                        <CheckCircle className="h-4 w-4" />
+                        {success}
+                    </div>
+                )}
+
+                <section>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-slate-900 dark:text-white text-lg font-bold flex items-center gap-2">
+                            <LockIcon className="h-5 w-5 text-primary" />
+                            Password Management
+                        </h3>
+                    </div>
+
+                    {flow === 'idle' && (
+                        <div className="bg-white dark:bg-surface-dark rounded-2xl p-10 border border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center text-center gap-6">
+                            <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                <Shield className="h-8 w-8" />
+                            </div>
+                            <div>
+                                <h4 className="text-xl font-bold text-slate-900 dark:text-white">Reset Account Password</h4>
+                                <p className="text-slate-500 dark:text-slate-400 max-w-sm mt-2">
+                                    Trigger a secure password reset via email verification. This will use the email associated with your account.
+                                </p>
+                            </div>
+                            <button 
+                                onClick={() => setFlow('confirming')}
+                                className="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-blue-600 shadow-xl shadow-primary/25 transition-all active:scale-95"
+                            >
+                                Initiate Reset Flow
+                            </button>
+                        </div>
+                    )}
+
+                    {flow === 'confirming' && (
+                        <div className="bg-white dark:bg-surface-dark rounded-2xl p-10 border-2 border-primary/20 flex flex-col items-center text-center gap-6">
+                            <div className="size-16 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center text-amber-600">
+                                <AlertCircle className="h-8 w-8" />
+                            </div>
+                            <div>
+                                <h4 className="text-xl font-bold text-slate-900 dark:text-white">Authorise Password Reset?</h4>
+                                <p className="text-slate-500 dark:text-slate-400 max-w-sm mt-2">
+                                    We will send a 6-digit code to <span className="font-bold text-slate-700 dark:text-slate-200">{user?.email}</span>. You will need this code to complete the reset.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-4 w-full max-w-sm">
+                                <button 
+                                    onClick={() => setFlow('idle')}
+                                    className="flex-1 px-6 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={handleInitiateReset}
+                                    disabled={isProcessing}
+                                    className="flex-1 px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-blue-600 shadow-xl shadow-primary/25 disabled:opacity-50 flex items-center justify-center gap-3 lg-transition"
+                                >
+                                    {isProcessing ? <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "Verify & Send"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {flow === 'resetting' && (
+                        <div className="bg-white dark:bg-surface-dark rounded-2xl border border-slate-200 dark:border-slate-800 p-8 space-y-8">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider">Verification Code</label>
+                                <div className="flex items-center gap-4">
+                                    <div className="relative flex-1">
+                                        <input 
+                                            type="text" 
+                                            maxLength={6}
+                                            placeholder="000000" 
+                                            value={otp}
+                                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                                            className="w-full h-14 rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-center tracking-[0.75em] text-2xl focus:border-primary focus:ring-0 transition-all outline-none" 
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={handleResendOtp}
+                                        disabled={cooldown > 0 || isProcessing}
+                                        className="px-6 h-14 rounded-xl border border-slate-200 dark:border-slate-800 font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all text-sm"
+                                    >
+                                        {cooldown > 0 ? (
+                                            <span className="text-primary font-mono text-lg">{cooldown}s</span>
+                                        ) : (
+                                            <RotateCw className={`h-5 w-5 ${isProcessing ? 'animate-spin' : ''}`} />
+                                        )}
+                                        Resend Code
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wider">New Password</label>
+                                    <div className="relative">
+                                        <input 
+                                            type={showNew ? "text" : "password"} 
+                                            placeholder="••••••••" 
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            className="block w-full h-12 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-primary focus:ring-primary px-4 pr-12 text-lg" 
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowNew(!showNew)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                        >
+                                            {showNew ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wider">Confirm New Password</label>
+                                    <div className="relative">
+                                        <input 
+                                            type={showConfirm ? "text" : "password"} 
+                                            placeholder="••••••••" 
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            className="block w-full h-12 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-primary focus:ring-primary px-4 pr-12 text-lg" 
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowConfirm(!showConfirm)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                        >
+                                            {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Password Rules */}
+                            <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/50 space-y-4">
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Security Requirements</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {passwordRules.map((rule, idx) => {
+                                        const isMet = rule.test(newPassword)
+                                        return (
+                                            <div key={idx} className="flex items-center gap-3 text-sm transition-colors">
+                                                <div className={`p-1 rounded-full ${isMet ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}`}>
+                                                    {isMet ? <Check className="h-3.5 w-3.5" /> : <div className="h-3.5 w-3.5" />}
+                                                </div>
+                                                <span className={isMet ? 'text-slate-700 dark:text-slate-200 font-medium' : 'text-slate-500 dark:text-slate-400'}>
+                                                    {rule.label}
+                                                </span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                                {newPassword && confirmPassword && (
+                                    <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                                        <div className="flex items-center gap-3 text-sm">
+                                            <div className={`p-1 rounded-full ${newPassword === confirmPassword ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' : 'bg-red-50 dark:bg-red-900/20 text-red-400'}`}>
+                                                {newPassword === confirmPassword ? <Check className="h-3.5 w-3.5" /> : <XIcon className="h-3.5 w-3.5" />}
+                                            </div>
+                                            <span className={newPassword === confirmPassword ? 'text-slate-700 dark:text-slate-200 font-medium' : 'text-red-400'}>
+                                                Passwords match
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex justify-end gap-4 pt-4">
+                                <button 
+                                    type="button"
+                                    onClick={() => {
+                                        setFlow('idle')
+                                        setOtp('')
+                                        setNewPassword('')
+                                        setConfirmPassword('')
+                                        setError(null)
+                                        setSuccess(null)
+                                    }}
+                                    className="px-6 py-3 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+                                >
+                                    Abort
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={handleFinalReset}
+                                    disabled={!isValid || isProcessing}
+                                    className="px-8 py-3 rounded-xl bg-primary text-white font-bold hover:bg-blue-600 shadow-xl shadow-primary/25 transition-all active:scale-95 text-base disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed flex items-center gap-3"
+                                >
+                                    {isProcessing ? (
+                                        <>
+                                            <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Authorising...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle className="size-5" />
+                                            Complete Reset
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </section>
 
                 <section>
@@ -324,8 +599,6 @@ function SecuritySettings() {
                         />
                     </div>
                 </section>
-
-                <SaveButtons />
             </div>
         </>
     )
@@ -412,7 +685,7 @@ function ApiKeysSettings() {
                 <section>
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-slate-900 dark:text-white text-lg font-bold flex items-center gap-2">
-                            <Key className="h-5 w-5 text-primary" />
+                            <KeyIcon className="h-5 w-5 text-primary" />
                             Your API Keys
                         </h3>
                         <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-medium transition-colors">

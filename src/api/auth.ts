@@ -4,8 +4,14 @@ import type {
   LoginRequest,
   LoginResponse,
   CheckEmailResponse,
+  VerifyEmailRequest,
+  VerifyEmailResponse,
   RegisterRequest,
   RefreshTokenResponse,
+  UpdatePasswordRequest,
+  ResetPasswordRequest,
+  ResendVerificationRequest,
+  ForgotPasswordRequest,
 } from '../types/api'
 
 export const authApi = {
@@ -15,6 +21,10 @@ export const authApi = {
 
   checkEmail: (email: string): Promise<CheckEmailResponse> => {
     return apiClient.post<CheckEmailResponse>('/auth/check-email', { email }, { skipAuth: true })
+  },
+
+  verifyEmail: (data: VerifyEmailRequest): Promise<VerifyEmailResponse> => {
+    return apiClient.post<VerifyEmailResponse>('/auth/verify-email', data, { skipAuth: true })
   },
 
   register: (data: RegisterRequest): Promise<{ message: string }> => {
@@ -43,5 +53,21 @@ export const authApi = {
 
   getGoogleAuthUrl: (): string => {
     return apiClient.getGoogleAuthUrl()
+  },
+
+  updatePassword: (data: UpdatePasswordRequest): Promise<{ message: string }> => {
+    return apiClient.post('/auth/update-password', data)
+  },
+
+  resendVerification: (data: ResendVerificationRequest): Promise<{ message: string }> => {
+    return apiClient.post('/auth/resend-verification', data, { skipAuth: true })
+  },
+
+  resetPassword: (data: ResetPasswordRequest): Promise<{ message: string }> => {
+    return apiClient.post('/auth/reset-password', data, { skipAuth: true })
+  },
+
+  forgotPassword: (data: ForgotPasswordRequest): Promise<{ message: string }> => {
+    return apiClient.post('/auth/forgot-password', data, { skipAuth: true })
   },
 }

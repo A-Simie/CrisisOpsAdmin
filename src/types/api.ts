@@ -179,6 +179,16 @@ export interface LoginResponse {
   user: User
 }
 
+export interface VerifyEmailRequest {
+  email: string
+  otp: string
+}
+
+export interface VerifyEmailResponse {
+  message: string
+  user: User
+}
+
 export interface RegisterRequest {
   email: string
   password: string
@@ -194,6 +204,25 @@ export interface RefreshTokenRequest {
 export interface RefreshTokenResponse {
   accessToken: string
   refreshToken: string
+}
+
+export interface UpdatePasswordRequest {
+  currentPassword: string
+  newPassword: string
+}
+
+export interface ResetPasswordRequest {
+  email: string
+  otp: string
+  password: string
+}
+
+export interface ResendVerificationRequest {
+  email: string
+}
+
+export interface ForgotPasswordRequest {
+  email: string
 }
 
 export interface ApiError {
