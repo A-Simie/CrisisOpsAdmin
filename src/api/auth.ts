@@ -3,7 +3,6 @@ import type {
   User,
   LoginRequest,
   LoginResponse,
-  CheckEmailResponse,
   VerifyEmailRequest,
   VerifyEmailResponse,
   RegisterRequest,
@@ -17,10 +16,6 @@ import type {
 export const authApi = {
   login: (credentials: LoginRequest): Promise<LoginResponse> => {
     return apiClient.post<LoginResponse>('/auth/login', credentials, { skipAuth: true })
-  },
-
-  checkEmail: (email: string): Promise<CheckEmailResponse> => {
-    return apiClient.post<CheckEmailResponse>('/auth/check-email', { email }, { skipAuth: true })
   },
 
   verifyEmail: (data: VerifyEmailRequest): Promise<VerifyEmailResponse> => {

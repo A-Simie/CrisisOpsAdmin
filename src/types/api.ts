@@ -169,10 +169,6 @@ export interface LoginRequest {
   password: string
 }
 
-export interface CheckEmailResponse {
-  exists: boolean
-}
-
 export interface LoginResponse {
   accessToken: string
   refreshToken?: string

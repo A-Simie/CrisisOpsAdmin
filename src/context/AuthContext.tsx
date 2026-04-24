@@ -74,13 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError(null)
 
         try {
-            // Step 1: Pre-authentication Email Check
-            await authApi.checkEmail(email)
-
-            // Step 2: Standard Login
             const response = await authApi.login({ email, password })
             
-            // Step 3: Role-based Authorization check for Admin App
+            // Role-based Authorization check for Admin App
             if (response.user.role === 'CITIZEN') {
                 throw new Error('Access denied. Admin privileges required.')
             }
