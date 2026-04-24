@@ -237,14 +237,7 @@ export function LoginPage() {
                                 </div>
                                 <span className="text-sm text-slate-600 dark:text-gray-300 font-medium">Units Deployed</span>
                             </div>
-                            {/* <span className="text-2xl font-bold text-slate-900 dark:text-white">8,902</span> */}
                         </div>
-                    </div>
-
-                    <div className="mt-8 flex gap-6 text-xs text-slate-500 dark:text-gray-400 font-mono">
-                        <span>v4.2.0 (Stable)</span>
-                        <span>Server: US-EAST-1</span>
-                        <span>Latency: 24ms</span>
                     </div>
                 </div>
             </div>
