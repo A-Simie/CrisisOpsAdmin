@@ -20,7 +20,8 @@ const refreshAccessToken = async (): Promise<boolean> => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-App-Source': 'admin'
         },
         credentials: 'include',
       })
@@ -43,6 +44,7 @@ const request = async <T>(endpoint: string, options: RequestOptions = {}): Promi
 
   const headers: Record<string, string> = {
     'X-Requested-With': 'XMLHttpRequest',
+    'X-App-Source': 'admin',
     ...(fetchOptions.headers as Record<string, string>),
   }
 
